@@ -1,0 +1,307 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+json-dotenv
+"""
+
+__license__ = """
+    Copyright (C) 2019  doowan
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+__version__ = '0.0.1'
+
+
+import dotenv
+import json
+import logging
+import os
+import re
+import sys
+
+import warnings
+warnings.filterwarnings('ignore')
+
+from StringIO import StringIO
+
+from optparse import OptionParser
+from sonicprobe import helpers
+
+
+SYSLOG_NAME    = "json-dotenv"
+LOG            = logging.getLogger(SYSLOG_NAME)
+
+MATCH_VAR_NAME = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*=').match
+
+ACTION_CHOICES = ('list',
+                  'keys',
+                  'get',
+                  'set',
+                  'unset')
+
+
+class JsonDotEnvExit(SystemExit):
+    pass
+
+
+def argv_parse_check():
+    """
+    Parse (and check a little) command line parameters
+    """
+    parser          = OptionParser(usage="usage: %prog [options]")
+
+    parser.add_option("-c",
+                      dest      = 'command',
+                      default   = os.environ.get('JSON_DOTENV_COMMAND') or 'list',
+                      choices   = ACTION_CHOICES,
+                      help      = "Commands: \n" + ", ".join(ACTION_CHOICES))
+    parser.add_option("--key",
+                      action    = 'append',
+                      dest      = 'key',
+                      default   = [],
+                      help      = "variable name to set or unset")
+    parser.add_option("--value",
+                      action    = 'append',
+                      dest      = 'value',
+                      default   = [],
+                      help      = "variable value to set")
+    parser.add_option("-f",
+                      dest      = 'file',
+                      default   = os.environ.get('JSON_DOTENV_FILE') or os.path.join(os.getcwd(), '.env'),
+                      help      = "Location of the environment file or from stdin (-), instead of %default")
+    parser.add_option("--force",
+                      action    = 'store_true',
+                      dest      = 'force',
+                      default   = False,
+                      help      = "Force the output even if there is an error")
+    parser.add_option("--loglevel",
+                      dest      = 'loglevel',
+                      default   = 'info',   # warning: see affectation under
+                      choices   = ('critical', 'error', 'warning', 'info', 'debug'),
+                      help      = ("Emit traces with LOGLEVEL details, must be one of:\t"
+                                   "critical, error, warning, info, debug"))
+    parser.add_option("-o",
+                      dest      = 'output',
+                      default   = os.environ.get('JSON_DOTENV_OUTPUT') or '-',
+                      help      = "Output result in file or to stdout")
+    parser.add_option("-q",
+                      dest      = 'quote',
+                      default   = os.environ.get('JSON_DOTENV_QUOTE') or 'always',
+                      choices   = ('always', 'never', 'auto'),
+                      help      = "Whether to quote or not the variable values, instead of %default. This does not affect parsing")
+    parser.add_option("--format",
+                      dest      = 'format',
+                      default   = 'json',
+                      choices   = ('env', 'json'),
+                      help      = "Output format env or json, instead of %default")
+
+    options, args   = parser.parse_args()
+
+    if args:
+        parser.error("no argument is allowed - use option --help to get an help screen")
+
+    options.loglevel = getattr(logging, options.loglevel.upper(), logging.INFO)
+
+    return options
+
+
+class JsonDotEnv(object):
+    def __init__(self, options):
+        self.options  = options
+        self.fcontent = None
+
+    def _format(self, out):
+        if self.options.format == 'json':
+            return json.dumps(out)
+
+        r = []
+
+        if isinstance(out, dict):
+            for k, v in out.items():
+                r.append("%s=%s" % (k, v))
+        elif isinstance(out, (list, tuple)):
+            r.extend(out)
+        else:
+            r = "%s" % out
+
+        return "\n".join(r)
+
+    def _parse_file(self):
+        if self.options.file == '-':
+            xfile = StringIO(sys.stdin)
+        elif not os.path.exists(self.options.file):
+            raise IOError("unable to find file: %r" % self.options.file)
+        else:
+            xfile = open(self.options.file, 'rb')
+
+        content = []
+        cur     = ""
+        for x in xfile.readlines():
+            if not MATCH_VAR_NAME(x):
+                cur += helpers.raw_string(x)
+            else:
+                if cur:
+                    content.append(cur)
+                cur = helpers.raw_string(x.strip())
+
+        if cur:
+            content.append(cur)
+
+        if xfile:
+            xfile.close()
+
+        self.fcontent = StringIO("\n".join(content) + "\n")
+
+    def _valid_varname(self, key):
+        if not key:
+            LOG.error("missing variable name for command %s", self.options.command)
+            raise JsonDotEnvExit(1)
+        elif not isinstance(key, str) \
+             or not MATCH_VAR_NAME("%s=" % key):
+            LOG.error("invalid variable name for command %s", self.options.command)
+            raise JsonDotEnvExit(2)
+
+        return True
+
+    def _valid_varvalue(self, value):
+        if value is None:
+            LOG.error("missing variable value for command %s", self.options.command)
+            raise JsonDotEnvExit(3)
+
+        return True
+
+    def _output(self, content):
+       if self.options.output == '-':
+           sys.stdout.write(content + "\n")
+       else:
+           with open(self.options.output, 'w+b') as f:
+               f.write(content + "\n")
+
+    def do_list(self):
+        self._parse_file()
+
+        return self._output(
+            self._format(
+                dotenv.dotenv_values(self.fcontent)))
+
+    def do_keys(self):
+        self._parse_file()
+
+        return self._output(
+            self._format(
+                dotenv.dotenv_values(self.fcontent).keys()))
+
+    def do_get(self):
+        r     = {}
+
+        self._parse_file()
+
+        envs  = dotenv.dotenv_values(self.fcontent)
+
+        for key in self.options.key:
+            self._valid_varname(key)
+
+            if key in envs:
+                r[key] = envs[key]
+                continue
+
+            LOG.warning("unable to get key: %r" % key)
+            if not self.options.force:
+                raise JsonDotEnvExit(4)
+
+        return self._output(self._format(r))
+
+    def do_set(self):
+        fpath = None
+        self._parse_file()
+
+        try:
+            fpath = helpers.file_w_tmp(self.fcontent.getvalue())
+
+            for i, key in enumerate(self.options.key):
+                value = self.options.value[i]
+                self._valid_varname(key)
+                self._valid_varvalue(value)
+                success, k, v = dotenv.set_key(fpath,
+                                               key,
+                                               value,
+                                               self.options.quote)
+
+                if success:
+                    continue
+
+                LOG.warning("unable to add key: %r" % key)
+                if not self.options.force:
+                    raise JsonDotEnvExit(4)
+
+            return self._output(
+                self._format(
+                    dotenv.dotenv_values(fpath)))
+        finally:
+            if fpath and os.path.isfile(fpath):
+                os.unlink(fpath)
+
+    def do_unset(self):
+        fpath = None
+        self._parse_file()
+
+        try:
+            fpath = helpers.file_w_tmp(self.fcontent.getvalue())
+
+            for key in self.options.key:
+                self._valid_varname(key)
+                success, k = dotenv.unset_key(fpath,
+                                              key,
+                                              self.options.quote)
+                if success:
+                    continue
+
+                LOG.warning("unable to remove key: %r", k)
+                if not self.options.force:
+                    raise JsonDotEnvExit(4)
+
+            return self._output(
+                self._format(
+                    dotenv.dotenv_values(fpath)))
+        finally:
+            if fpath and os.path.isfile(fpath):
+                os.unlink(fpath)
+
+
+def main(options):
+    """
+    Main function
+    """
+
+    xformat = "%(levelname)s:%(asctime)-15s: %(message)s"
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(level   = options.loglevel,
+                        format  = xformat,
+                        datefmt = datefmt)
+
+    try:
+        rc = getattr(JsonDotEnv(options), "do_%s" % options.command)()
+    except JsonDotEnvExit, e:
+        rc = e.code
+    except (SystemExit, KeyboardInterrupt), e:
+        rc = 255
+    except Exception, e:
+        rc = 5
+        LOG.exception(e)
+
+    return rc
+
+
+if __name__ == '__main__':
+    sys.exit(main(argv_parse_check()))
