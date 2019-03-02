@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 
 import dotenv
@@ -139,7 +139,7 @@ class JsonDotEnv(object):
 
     def _parse_file(self):
         if self.options.file == '-':
-            xfile = StringIO(sys.stdin)
+            xfile = StringIO(sys.stdin.read())
         elif not os.path.exists(self.options.file):
             raise IOError("unable to find file: %r" % self.options.file)
         else:
@@ -185,8 +185,7 @@ class JsonDotEnv(object):
        if self.options.output == '-':
            sys.stdout.write(content + "\n")
        else:
-           with open(self.options.output, 'w+b') as f:
-               f.write(content + "\n")
+           helpers.file_w_tmp(content + "\n", self.options.output, mode = 'wb+')
 
     def do_list(self):
         self._parse_file()
@@ -306,14 +305,18 @@ def main(options):
                         format  = xformat,
                         datefmt = datefmt)
 
+    rc = 0
+
     try:
-        rc = getattr(JsonDotEnv(options), "do_%s" % options.command)()
+        getattr(JsonDotEnv(options), "do_%s" % options.command)()
     except JsonDotEnvExit, e:
         rc = e.code
-    except (SystemExit, KeyboardInterrupt), e:
+    except (SystemExit, KeyboardInterrupt):
         rc = 255
+    except IOError, e:
+        LOG.error(e)
     except Exception, e:
-        rc = 5
+        rc = 6
         LOG.exception(e)
 
     return rc
