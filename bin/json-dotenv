@@ -20,7 +20,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 import dotenv
@@ -203,6 +203,10 @@ class JsonDotEnv(object):
                 dotenv.dotenv_values(self.fcontent).keys()))
 
     def do_get(self):
+        if not self.options.key:
+            LOG.error("missing argument key")
+            raise JsonDotEnvExit(4)
+
         r     = {}
 
         self._parse_file()
@@ -223,6 +227,14 @@ class JsonDotEnv(object):
         return self._output(self._format(r))
 
     def do_set(self):
+        if not self.options.key:
+            LOG.error("missing argument key")
+            raise JsonDotEnvExit(4)
+
+        if not self.options.value or len(self.options.key) != len(self.options.key):
+            LOG.error("missing argument value")
+            raise JsonDotEnvExit(4)
+
         fpath = None
         self._parse_file()
 
@@ -253,6 +265,10 @@ class JsonDotEnv(object):
                 os.unlink(fpath)
 
     def do_unset(self):
+        if not self.options.key:
+            LOG.error("missing argument key")
+            raise JsonDotEnvExit(4)
+
         fpath = None
         self._parse_file()
 
