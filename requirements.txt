@@ -1,2 +1,2 @@
 python-dotenv
-sonicprobe>=0.2.71
+six>=1.4.0
