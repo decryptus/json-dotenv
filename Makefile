@@ -3,21 +3,21 @@
 
 CHANGELOG_PATH ?= "$(CURDIR)/CHANGELOG"
 DCH_PATH ?= dch
-DPKG_PARSECHANGELOG_PATH ?= "dpkg-parsechangelog"
-EDITOR_PATH ?= "vim"
-FIND_PATH ?= "find"
-GIT_PATH ?= "git"
-GREP_PATH ?= "grep"
+DPKG_PARSECHANGELOG_PATH ?= dpkg-parsechangelog
+EDITOR_PATH ?= vim
+FIND_PATH ?= find
+GIT_PATH ?= git
+GREP_PATH ?= grep
 J2_PATH ?= j2
-MAKE_PATH ?= "make"
-PYTHON2_PATH ?= "python2"
-PYTHON3_PATH ?= "python3"
-RM_PATH ?= "rm"
-SED_PATH ?= "sed"
-TWINE_PATH ?= "twine"
+MAKE_PATH ?= make
+PYTHON2_PATH ?= python2
+PYTHON3_PATH ?= python3
+RM_PATH ?= rm
+SED_PATH ?= sed
+TWINE_PATH ?= twine
 
-export PROJECT_RELEASE=$(shell $(DPKG_PARSECHANGELOG_PATH) -S Version -l ${CHANGELOG_PATH})
-export PROJECT_VERSION=$(shell $(DPKG_PARSECHANGELOG_PATH) -S Version -l ${CHANGELOG_PATH} | $(SED_PATH) -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+export PROJECT_RELEASE=$(shell $(DPKG_PARSECHANGELOG_PATH) -S Version -l $(CHANGELOG_PATH))
+export PROJECT_VERSION=$(shell $(DPKG_PARSECHANGELOG_PATH) -S Version -l $(CHANGELOG_PATH) | $(SED_PATH) -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
 export PROJECT_GIT_RELEASE="$(shell echo -n "$(PROJECT_RELEASE)"| $(SED_PATH) 's/~/-/g')"
 export PROJECT_COPYRIGHT_YEAR=$(shell date +'%Y')
 

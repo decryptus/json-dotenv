@@ -4,8 +4,8 @@ description: json-dotenv
 author: Adrien Delle Cave
 author_email: pypi@doowan.net
 copyright: '2019  doowan'
-release: '0.0.13'
-version: '0.0.13'
+release: '0.0.14'
+version: '0.0.14'
 license: License GPL-2
 url: https://github.com/decryptus/json-dotenv
 python_requires:
