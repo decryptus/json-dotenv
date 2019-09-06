@@ -22,7 +22,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.4'
+__version__ = '0.0.9'
 
 import argparse
 import json
@@ -39,8 +39,9 @@ import logging
 from logging.handlers import WatchedFileHandler
 
 import six
+
 try:
-    from StringIO import CStringIO as StringIO
+    from six.moves import cStringIO as StringIO
 except ImportError:
     from six import StringIO
 
@@ -150,7 +151,7 @@ def argv_parse_check():
 class JsonDotEnvExit(SystemExit):
     pass
 
-class JsonDotEnv(object):
+class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inheritance
     def __init__(self, options):
         self.options  = options
         self.fcontent = None
@@ -188,7 +189,7 @@ class JsonDotEnv(object):
             s = match.group()
             if six.PY2 and isinstance(s, str):
                 return s.encode('string-escape')
-            elif isinstance(s, six.text_type):
+            if isinstance(s, six.text_type):
                 r = s.encode('unicode-escape')
                 if six.PY3 and isinstance(r, six.binary_type):
                     return six.ensure_text(r)
@@ -266,7 +267,7 @@ class JsonDotEnv(object):
         if not key:
             LOG.error("missing variable name for command %s", self.options.command)
             raise JsonDotEnvExit(1)
-        elif not isinstance(key, six.string_types) \
+        if not isinstance(key, six.string_types) \
              or not MATCH_VAR_NAME("%s=" % key):
             LOG.error("invalid variable name for command %s", self.options.command)
             raise JsonDotEnvExit(2)
@@ -343,6 +344,7 @@ class JsonDotEnv(object):
                 value = self.options.value[i]
                 self._valid_varname(key)
                 self._valid_varvalue(value)
+                #pylint: disable=unused-variable
                 success, k, v = dotenv.set_key(fpath,
                                                key,
                                                value,

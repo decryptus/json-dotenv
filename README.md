@@ -5,6 +5,11 @@
 
 json-dotenv is a free and open-source, we develop it to manipulate and extract envfiles in json format.
 
+## Table of Contents
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Commands](#commands)
+
 ## Installation
 
 `pip install json-dotenv`
