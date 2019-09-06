@@ -7,15 +7,15 @@
 json-dotenv is a free and open-source, we develop it to manipulate and extract envfiles in json format.
 
 ## Table of Contents
-1. [Installation](#id1)
-2. [Usage](#id2)
-3. [Commands](#id3)
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Commands](#commands)
 
-## Installation
+## <a name="installation"></a>Installation
 
 `pip install json-dotenv`
 
-## Usage
+## <a name="usage"></a>Usage
 
 ```
 usage: json-dotenv [-h] [-c {list,keys,get,set,unset}] [-k KEY] [-v VALUE]
@@ -53,7 +53,7 @@ optional arguments:
   --format {env,json}   Output format env or json, instead of json
 ```
 
-## Commands
+## <a name="commands"></a>Commands
 
 List all environment variables in file foo.env:
 
