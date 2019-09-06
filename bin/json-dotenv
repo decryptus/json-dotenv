@@ -22,7 +22,7 @@ __license__ = """
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.14'
+__version__ = '0.0.15'
 
 import argparse
 import json
@@ -87,19 +87,19 @@ def argv_parse_check():
                         "--key",
                         action    = 'append',
                         dest      = 'key',
-                        type      = six.u,
+                        type      = six.text_type,
                         default   = [],
                         help      = "variable name to set or unset")
     parser.add_argument("-v",
                         "--value",
                         action    = 'append',
                         dest      = 'value',
-                        type      = six.u,
+                        type      = six.text_type,
                         default   = [],
                         help      = "variable value to set")
     parser.add_argument("-f",
                         dest      = 'file',
-                        type      = six.u,
+                        type      = six.text_type,
                         default   = os.environ.get('JSON_DOTENV_FILE') or os.path.join(os.getcwd(), '.env'),
                         help      = "Location of the environment file or from stdin (-), instead of %(default)s")
     parser.add_argument("--force",
@@ -116,12 +116,12 @@ def argv_parse_check():
                                      "critical, error, warning, info, debug"))
     parser.add_argument("--logfile",
                         dest      = 'logfile',
-                        type      = six.u,
+                        type      = six.text_type,
                         default   = JSON_DOTENV_LOGFILE,
                         help      = "Use log file <logfile> instead of %(default)s")
     parser.add_argument("-o",
                         dest      = 'output',
-                        type      = six.u,
+                        type      = six.text_type,
                         default   = os.environ.get('JSON_DOTENV_OUTPUT') or '-',
                         help      = "Output result in file or to stdout")
     parser.add_argument("-q",
