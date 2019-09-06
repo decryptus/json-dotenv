@@ -57,13 +57,13 @@ build-git-version:
     	done \
 	fi ;
 
-publish-git-version:
+push-git-version:
 	$(MAKE_PATH) build-git-version
 	$(GIT_PATH) push
 	$(GIT_PATH) tag -a "v$(PROJECT_VERSION)" -m "version: $(PROJECT_VERSION)"
 	$(GIT_PATH) push origin "v$(PROJECT_VERSION)"
 
-publish-git-release:
+push-git-release:
 	$(MAKE_PATH) build-git-version
 	$(GIT_PATH) push
 	$(GIT_PATH) tag -a "$(PROJECT_GIT_RELEASE)-release" -m "release: $(PROJECT_GIT_RELEASE)"
@@ -76,11 +76,11 @@ git-push:
 
 git-version:
 	$(MAKE_PATH) git-push
-	$(MAKE_PATH) publish-git-version
+	$(MAKE_PATH) push-git-version
 
 git-release:
 	$(MAKE_PATH) git-push
-	$(MAKE_PATH) publish-git-release
+	$(MAKE_PATH) push-git-release
 
 build-pip2: clean-pip
 	$(PYTHON2_PATH) setup.py bdist_wheel
@@ -88,17 +88,17 @@ build-pip2: clean-pip
 build-pip3: clean-pip
 	$(PYTHON3_PATH) setup.py bdist_wheel
 
-publish-pip2:
+push-pip2:
 	$(TWINE_PATH) upload dist/*
 
-publish-pip3:
+push-pip3:
 	$(TWINE_PATH) upload dist/*
 
-build-publish-pip:
+push-pip:
 	$(MAKE_PATH) build-pip2
-	$(MAKE_PATH) publish-pip2
+	$(MAKE_PATH) push-pip2
 	$(MAKE_PATH) build-pip3
-	$(MAKE_PATH) publish-pip3
+	$(MAKE_PATH) push-pip3
 
 clean-pip:
 	$(RM_PATH) -rf build/ dist/

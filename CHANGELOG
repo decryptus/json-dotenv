@@ -1,3 +1,9 @@
+json-dotenv (0.0.10) unstable; urgency=medium
+
+  * [BUG] Missed PyYAML in requirements.txt.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Fri, 06 Sep 2019 11:01:07 +0200
+
 json-dotenv (0.0.9) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.9.
