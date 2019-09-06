@@ -2,7 +2,7 @@
 
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/json-dotenv.svg)](https://pypi.org/project/json-dotenv/)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/json-dotenv.svg)](https://pypi.org/project/json-dotenv/)
-[![Documentation Status](https://readthedocs.org/projects/ansicolortags/badge/?version=latest)](http://ansicolortags.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/json-dotenv/badge/?version=latest)](http://json-dotenv.readthedocs.io/?badge=latest)
 
 json-dotenv is a free and open-source, we develop it to manipulate and extract envfiles in json format.
 
