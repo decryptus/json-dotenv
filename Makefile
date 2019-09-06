@@ -37,7 +37,7 @@ setup-config:
 	$(MAKE_PATH) version
 	$(J2_PATH) setup.yml.j2 -o setup.yml
 
-build-docs: setup-config
+docs: setup-config
 	cd docs && $(MAKE_PATH) html
 
 clean-docs:
