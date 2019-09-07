@@ -2,11 +2,11 @@
 
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/json-dotenv.svg)](https://pypi.org/project/json-dotenv/)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/json-dotenv.svg)](https://pypi.org/project/json-dotenv/)
-[![Documentation Status](https://readthedocs.org/projects/json-dotenv/badge/?version=latest)](http://json-dotenv.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/json-dotenv/badge/?version=latest)](https://json-dotenv.readthedocs.io/)
 
 json-dotenv is a free and open-source, we develop it to manipulate and extract envfiles in json format.
 
-## Table of Contents
+## Table of contents
 1. [Installation](#installation)
 2. [Usage](#usage)
 3. [Commands](#commands)
@@ -38,8 +38,7 @@ optional arguments:
   -v VALUE, --value VALUE
                         variable value to set
   -f FILE               Location of the environment file or from stdin (-),
-                        instead of /home/decryptus/dev/fjord/gitlab/si/json-
-                        dotenv/.env
+                        instead of .env
   --force               Force the output even if there is an error
   -l {critical,error,warning,info,debug}, --loglevel {critical,error,warning,info,debug}
                         Emit traces with LOGLEVEL details, must be one of:

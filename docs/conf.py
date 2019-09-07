@@ -12,10 +12,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import yaml
+# import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+import os
+import yaml
 
 root_dir     = os.path.abspath('..')
 setup_config = os.path.join(root_dir, 'setup.yml')
