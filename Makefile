@@ -64,7 +64,6 @@ push-git-version:
 	$(GIT_PATH) push origin "v$(PROJECT_VERSION)"
 
 push-git-release:
-	$(MAKE_PATH) build-git-version
 	$(GIT_PATH) push
 	$(GIT_PATH) tag -a "$(PROJECT_GIT_RELEASE)-release" -m "release: $(PROJECT_GIT_RELEASE)"
 	$(GIT_PATH) push origin "$(PROJECT_GIT_RELEASE)-release"
@@ -72,6 +71,7 @@ push-git-release:
 git-push:
 	$(MAKE_PATH) changelog
 	$(MAKE_PATH) setup-config
+	$(MAKE_PATH) build-git-version
 	$(MAKE_PATH) build-git-commit
 
 git-version:
