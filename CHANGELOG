@@ -1,3 +1,10 @@
+json-dotenv (0.0.17) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.17.
+  * Changed license from GPLv2 to GPLv3.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Sat, 07 Sep 2019 22:26:47 +0200
+
 json-dotenv (0.0.16) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.16.
