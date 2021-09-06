@@ -278,7 +278,7 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
         return self._output(
             self._format(
-                dotenv.dotenv_values(self.fcontent)))
+                dotenv.dotenv_values(stream=self.fcontent)))
 
     def do_keys(self):
         self._parse_file()
