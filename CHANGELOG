@@ -1,8 +1,14 @@
+json-dotenv (0.0.23) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.23.
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 25 Jan 2022 16:37:56 +0100
+
 json-dotenv (0.0.22) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.22.
 
- -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 25 Jan 2022 16:31:38 +0100
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Tue, 25 Jan 2022 16:35:15 +0100
 
 json-dotenv (0.0.21) unstable; urgency=medium
 
