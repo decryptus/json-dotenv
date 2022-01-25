@@ -8,7 +8,7 @@ json-dotenv
 
 from __future__ import absolute_import
 
-__version__ = '0.0.21'
+__version__ = '0.0.22'
 
 import argparse
 import json
@@ -25,11 +25,7 @@ import logging
 from logging.handlers import WatchedFileHandler
 
 import six
-
-try:
-    from six.moves import cStringIO as StringIO
-except ImportError:
-    from six import StringIO
+from six import StringIO
 
 import dotenv
 
@@ -278,7 +274,7 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
         return self._output(
             self._format(
-                dotenv.dotenv_values(stream=self.fcontent)))
+                dotenv.dotenv_values(self.fcontent)))
 
     def do_keys(self):
         self._parse_file()
