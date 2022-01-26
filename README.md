@@ -18,8 +18,8 @@ json-dotenv is a free and open-source, we develop it to manipulate and extract e
 ## <a name="usage"></a>Usage
 
 ```
-usage: json-dotenv [-h] [-c {list,keys,get,set,unset}] [-k KEY] [-v VALUE]
-                   [-f FILE] [--force]
+usage: json-dotenv [-h] [--allow-envvar] [-c {list,keys,get,set,unset}]
+                   [-k KEY] [-v VALUE] [-f FILE] [--force]
                    [-l {critical,error,warning,info,debug}]
                    [--logfile LOGFILE] [-o OUTPUT] [-q {always,never,auto}]
                    [--format {env,json}]
@@ -31,6 +31,8 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  --allow-envvar        Allow environment variables expansion, instead of
+                        False
   -c {list,keys,get,set,unset}
                         Commands: list, keys, get, set, unset, instead of list
                         (deprecated)
@@ -50,6 +52,7 @@ optional arguments:
                         Whether to quote or not the variable values, instead
                         of always. This does not affect parsing
   --format {env,json}   Output format env or json, instead of json
+
 ```
 
 ## <a name="commands"></a>Commands
@@ -62,7 +65,7 @@ List all environment variables in file foo.env:
 {
   "LANG": "en_US.utf8",
   "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games",
-  "MONIT_DOCKER_CONFIG": "vars:\n  base_url_unix: unix:///var/run/docker.sock\n  base_url_https: https://127.0.0.1:2376/\n  tls_verify: true\nclients:\n  '@import_client':\n    - clients.yml.example\n  local_https:\n    config:\n      base_url: \n      tls:\n        verify: \n  foo_https:\n    '@import_vars': foo_https.vars.yml.example\n    config:\n      base_url: \nctn-groups:\n  php:\n    match:\n      - 'name:foo-php*'\n      - 'image:*/php-fpm/*'\n      - 'label:*php-fpm*'\n  nodejs:\n    match:\n      - 'id:4c01db0b339c'\n      - 'name:node*'\nconditions:\n  mem_gt_10pct_and_cpu_gt_60pct:\n    expr:\n      - mem_percent > 10\n      - cpu_percent > 60\n  mem_usage_100MiB:\n    expr:\n      - mem_usage > 100 MiB\n  status_not_running:\n    expr:\n      - status not in (pause,running)\ncommands:\n  start_pause:\n    exec:\n      - start\n      - (echo 'foo' > /tmp/bar)\n      - pause\n  pause_restart:\n    exec:\n      - pause\n      - restart\n  remove_force:\n    exec:\n      - remove:\n          kwargs:\n            force: true",
+  "MONIT_DOCKER_CONFIG": "vars:\n  base_url_unix: unix:///var/run/docker.sock\n  base_url_https: https://127.0.0.1:2376/\n  tls_verify: true\nclients:\n  '@import_client':\n    - clients.yml.example\n  local_https:\n    config:\n      base_url: ${vars['base_url_https']}\n      tls:\n        verify: ${vars['tls_verify']}\n  foo_https:\n    '@import_vars': foo_https.vars.yml.example\n    config:\n      base_url: ${vars['base_url_https']}\nctn-groups:\n  php:\n    match:\n      - 'name:foo-php*'\n      - 'image:*/php-fpm/*'\n      - 'label:*php-fpm*'\n  nodejs:\n    match:\n      - 'id:4c01db0b339c'\n      - 'name:node*'\nconditions:\n  mem_gt_10pct_and_cpu_gt_60pct:\n    expr:\n      - mem_percent > 10\n      - cpu_percent > 60\n  mem_usage_100MiB:\n    expr:\n      - mem_usage > 100 MiB\n  status_not_running:\n    expr:\n      - status not in (pause,running)\ncommands:\n  start_pause:\n    exec:\n      - start\n      - (echo 'foo' > /tmp/bar)\n      - pause\n  pause_restart:\n    exec:\n      - pause\n      - restart\n  remove_force:\n    exec:\n      - remove:\n          kwargs:\n            force: true",
   "SHELL": "/bin/bash",
   "AUTON_CONFIG": "general:\n  listen_addr:   0.0.0.0\n  listen_port:   8666\n  max_workers:   5\n  max_requests:  5000\n  max_life_time: 3600\n  lock_timeout:  60\n  charset:       utf-8\n  content_type:  'application/json; charset=utf-8'\n  #auth_basic:      'Restricted'\n  #auth_basic_file: '/etc/auton/auton.passwd'\nendpoints:\n  si.corp-ansible:\n    plugin: subproc\n    config:\n      prog: ansible-playbook\n      timeout: 3600\n  si.corp-terraform:\n    plugin: subproc\n    config:\n      prog: terraform\n      timeout: 3600\n  curl:\n    plugin: subproc\n    config:\n      prog: curl\n      timeout: 3600\nmodules:\n  job:\n    routes:\n      run:\n        handler:   'job_run'\n        regexp:    '^run/(?P<endpoint>[^\\/]+)/(?P<id>[a-z0-9][a-z0-9\\-]{7,63})$'\n        safe_init: true\n        auth:      false\n        op:        'POST'\n      status:\n        handler:   'job_status'\n        regexp:    '^status/(?P<endpoint>[^\\/]+)/(?P<id>[a-z0-9][a-z0-9\\-]{7,63})$'\n        auth:      false\n        op:        'GET'"
 }
@@ -89,11 +92,11 @@ Get foo.env contents from stdin and set variables AUTON\_CONFIG=bar and toto=tit
 ```json
 {
   "LANG": "en_US.utf8",
+  "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games",
+  "MONIT_DOCKER_CONFIG": "vars:\n  base_url_unix: unix:///var/run/docker.sock\n  base_url_https: https://127.0.0.1:2376/\n  tls_verify: true\nclients:\n  '@import_client':\n    - clients.yml.example\n  local_https:\n    config:\n      base_url: ${vars['base_url_https']}\n      tls:\n        verify: ${vars['tls_verify']}\n  foo_https:\n    '@import_vars': foo_https.vars.yml.example\n    config:\n      base_url: ${vars['base_url_https']}\nctn-groups:\n  php:\n    match:\n      - 'name:foo-php*'\n      - 'image:*/php-fpm/*'\n      - 'label:*php-fpm*'\n  nodejs:\n    match:\n      - 'id:4c01db0b339c'\n      - 'name:node*'\nconditions:\n  mem_gt_10pct_and_cpu_gt_60pct:\n    expr:\n      - mem_percent > 10\n      - cpu_percent > 60\n  mem_usage_100MiB:\n    expr:\n      - mem_usage > 100 MiB\n  status_not_running:\n    expr:\n      - status not in (pause,running)\ncommands:\n  start_pause:\n    exec:\n      - start\n      - (echo 'foo' > /tmp/bar)\n      - pause\n  pause_restart:\n    exec:\n      - pause\n      - restart\n  remove_force:\n    exec:\n      - remove:\n          kwargs:\n            force: true",
   "SHELL": "/bin/bash",
-  "toto": "titi",
   "AUTON_CONFIG": "bar",
-  "MONIT_DOCKER_CONFIG": "vars:\n  base_url_unix: unix:///var/run/docker.sock\n  base_url_https: https://127.0.0.1:2376/\n  tls_verify: true\nclients:\n  '@import_client':\n    - clients.yml.example\n  local_https:\n    config:\n      base_url: \n      tls:\n        verify: \n  foo_https:\n    '@import_vars': foo_https.vars.yml.example\n    config:\n      base_url: \nctn-groups:\n  php:\n    match:\n      - 'name:foo-php*'\n      - 'image:*/php-fpm/*'\n      - 'label:*php-fpm*'\n  nodejs:\n    match:\n      - 'id:4c01db0b339c'\n      - 'name:node*'\nconditions:\n  mem_gt_10pct_and_cpu_gt_60pct:\n    expr:\n      - mem_percent > 10\n      - cpu_percent > 60\n  mem_usage_100MiB:\n    expr:\n      - mem_usage > 100 MiB\n  status_not_running:\n    expr:\n      - status not in (pause,running)\ncommands:\n  start_pause:\n    exec:\n      - start\n      - (echo 'foo' > /tmp/bar)\n      - pause\n  pause_restart:\n    exec:\n      - pause\n      - restart\n  remove_force:\n    exec:\n      - remove:\n          kwargs:\n            force: true",
-  "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+  "toto": "titi"
 }
 ```
 
@@ -122,8 +125,8 @@ Unset variables MONIT\_DOCKER\_CONFIG and AUTON\_CONFIG from file foo.env (file 
 
 Set variables TOTO and BAR and output result in file bar.json:
 
-`json-dotenv -f '' set -k TOTO -v tutu -k BAR -v foo -o bar.json`
+`json-dotenv set -f '' -k TOTO -v tutu -k BAR -v foo -o bar.json`
 
 Set variables TOTO and BAR and output result in file bar.env (environment variables format):
 
-`json-dotenv -f '' set -k TOTO -v tutu -k BAR -v foo --format env -o bar.env`
+`json-dotenv set -f '' -k TOTO -v tutu -k BAR -v foo --format env -o bar.env`

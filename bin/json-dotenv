@@ -8,7 +8,7 @@ json-dotenv
 
 from __future__ import absolute_import
 
-__version__ = '0.0.23'
+__version__ = '0.0.25'
 
 import argparse
 import json
@@ -24,8 +24,14 @@ from collections import OrderedDict
 import logging
 from logging.handlers import WatchedFileHandler
 
-import six
-from six import StringIO
+from six import (binary_type,
+                 ensure_text,
+                 iteritems,
+                 PY2,
+                 PY3,
+                 StringIO,
+                 string_types,
+                 text_type)
 
 import dotenv
 
@@ -36,7 +42,8 @@ LOG                  = logging.getLogger(SYSLOG_NAME)
 
 MATCH_VAR_NAME       = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*=').match
 MATCH_VAR_NAME_QUOTE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*="').match
-RE_CRTL_CHARS        = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
+RE_CTRL_CHARS        = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
+MATCH_PVAR_ESCAPE    = re.compile(r'\$\{[^\}]*\}')
 
 ACTION_CHOICES       = ('list',
                         'keys',
@@ -49,6 +56,21 @@ DEFAULT_LOGFILE      = "/var/log/json-dotenv/json-dotenv.log"
 JSON_DOTENV_LOGFILE  = os.environ.get('JSON_DOTENV_LOGFILE') or DEFAULT_LOGFILE
 
 
+RE_CRTL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
+RE_SPACE_CHARS = re.compile(r'\s\s+')
+RE_YAML_QSTR = re.compile(r'^(?:\!\![a-z\/]+\s+)?\'(.*)\'$').match
+
+
+def boolize(value):
+    if isinstance(value, string_types):
+        if value.lower() in ('y', 'yes', 't', 'true'):
+            return True
+        if not value.isdigit():
+            return False
+        value = int(value)
+
+    return bool(value)
+
 def argv_parse_check():
     """
     Parse (and check a little) command line parameters
@@ -60,6 +82,11 @@ def argv_parse_check():
                         choices   = ACTION_CHOICES,
                         nargs     = '?',
                         help      = "Commands: \n" + ", ".join(ACTION_CHOICES))
+    parser.add_argument("--allow-envvar",
+                        action    = 'store_true',
+                        dest      = 'allow_envvar',
+                        default   = boolize(os.environ.get('JSON_DOTENV_ALLOW_ENVVAR')) or False,
+                        help      = "Allow environment variables expansion, instead of %(default)s")
     parser.add_argument("-c",
                         dest      = 'cmd',
                         default   = os.environ.get('JSON_DOTENV_COMMAND') or 'list',
@@ -69,19 +96,19 @@ def argv_parse_check():
                         "--key",
                         action    = 'append',
                         dest      = 'key',
-                        type      = six.text_type,
+                        type      = ensure_text,
                         default   = [],
                         help      = "variable name to set or unset")
     parser.add_argument("-v",
                         "--value",
                         action    = 'append',
                         dest      = 'value',
-                        type      = six.text_type,
+                        type      = ensure_text,
                         default   = [],
                         help      = "variable value to set")
     parser.add_argument("-f",
                         dest      = 'file',
-                        type      = six.text_type,
+                        type      = ensure_text,
                         default   = os.environ.get('JSON_DOTENV_FILE') or os.path.join(os.getcwd(), '.env'),
                         help      = "Location of the environment file or from stdin (-), instead of %(default)s")
     parser.add_argument("--force",
@@ -98,12 +125,12 @@ def argv_parse_check():
                                      "critical, error, warning, info, debug"))
     parser.add_argument("--logfile",
                         dest      = 'logfile',
-                        type      = six.text_type,
+                        type      = ensure_text,
                         default   = JSON_DOTENV_LOGFILE,
                         help      = "Use log file <logfile> instead of %(default)s")
     parser.add_argument("-o",
                         dest      = 'output',
-                        type      = six.text_type,
+                        type      = ensure_text,
                         default   = os.environ.get('JSON_DOTENV_OUTPUT') or '-',
                         help      = "Output result in file or to stdout")
     parser.add_argument("-q",
@@ -135,8 +162,9 @@ class JsonDotEnvExit(SystemExit):
 
 class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inheritance
     def __init__(self, options):
-        self.options  = options
-        self.fcontent = None
+        self.options   = options
+        self.fcontent  = None
+        self.variables = {}
 
     @staticmethod
     def flush_sync_file_object(fo):
@@ -167,36 +195,63 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
     @staticmethod
     def raw_string(value):
-        def repl_crtl_chars(match):
+        def repl_ctrl_chars(match):
             s = match.group()
-            if six.PY2 and isinstance(s, str):
+            if PY2 and isinstance(s, str):
                 return s.encode('string-escape')
-            if isinstance(s, six.text_type):
+            if isinstance(s, text_type):
                 r = s.encode('unicode-escape')
-                if six.PY3 and isinstance(r, six.binary_type):
-                    return six.ensure_text(r)
+                if PY3 and isinstance(r, binary_type):
+                    return ensure_text(r)
                 return r
 
             return repr(s)[1:-1]
 
-        return RE_CRTL_CHARS.sub(repl_crtl_chars, value)
+        return RE_CTRL_CHARS.sub(repl_ctrl_chars, value)
+
+    def escape_variable(self, value):
+        if self.options.allow_envvar:
+            return value
+
+        def repl_esc_variable(match):
+            varesc = match.group().replace('${', r'\$\{').replace('}', r'\}')
+            self.variables[varesc] = match.group()
+
+            return ensure_text(varesc)
+
+        return MATCH_PVAR_ESCAPE.sub(repl_esc_variable, value)
+
+    def unescape_variables(self, value):
+        if self.options.allow_envvar:
+            return value
+
+        if not self.variables:
+            return value
+
+        for key, item in iteritems(self.variables):
+            value = value.replace(key, item)
+
+        return value
 
     def _format(self, out):
         if self.options.format == 'json':
+            if isinstance(out, dict):
+                for k, v in iteritems(out):
+                    out[k] = self.unescape_variables(v)
             return json.dumps(out)
 
         r = []
 
         if isinstance(out, dict):
-            for k, v in out.items():
+            for k, v in iteritems(out):
                 if self.options.quote == 'always':
                     f = '{}="{}"'
                 elif self.options.quote == 'auto' \
-                   and (v.find(' ') > -1 or RE_CRTL_CHARS.match(v)):
+                   and (v.find(' ') > -1 or RE_CTRL_CHARS.match(v)):
                     f = '{}="{}"'
                 else:
                     f = '{}={}'
-                r.append(f.format(k, v))
+                r.append(f.format(k, self.unescape_variables(v)))
         elif isinstance(out, (list, tuple)):
             r.extend(out)
         else:
@@ -217,19 +272,22 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
         content = []
         cur     = ""
         quoted  = None
+
         for x in xfile.readlines():
             if MATCH_VAR_NAME_QUOTE(x):
                 if cur:
                     if quoted is False:
+                        cur = cur.rstrip("\\n")
                         cur += '"'
-                    content.append(cur)
+                    content.append(self.escape_variable(cur.rstrip("\\n")))
                 quoted = True
                 cur    = self.raw_string(x)
             elif MATCH_VAR_NAME(x):
                 if cur:
                     if quoted is False:
+                        cur = cur.rstrip("\\n")
                         cur += '"'
-                    content.append(cur)
+                    content.append(self.escape_variable(cur.rstrip("\\n")))
                 quoted = False
                 cur    = '{0}="{1}'.format(*self.raw_string(x).split('=', 1))
             else:
@@ -237,8 +295,9 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
         if cur:
             if quoted is False:
+                cur = cur.rstrip("\\n")
                 cur += '"'
-            content.append(cur)
+            content.append(self.escape_variable(cur.rstrip("\\n")))
 
         if xfile:
             xfile.close()
@@ -249,7 +308,7 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
         if not key:
             LOG.error("missing variable name for command %s", self.options.command)
             raise JsonDotEnvExit(1)
-        if not isinstance(key, six.string_types) \
+        if not isinstance(key, string_types) \
              or not MATCH_VAR_NAME("%s=" % key):
             LOG.error("invalid variable name for command %s", self.options.command)
             raise JsonDotEnvExit(2)
