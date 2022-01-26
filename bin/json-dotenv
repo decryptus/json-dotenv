@@ -8,7 +8,7 @@ json-dotenv
 
 from __future__ import absolute_import
 
-__version__ = '0.0.25'
+__version__ = '0.0.26'
 
 import argparse
 import json
