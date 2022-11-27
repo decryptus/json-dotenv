@@ -8,7 +8,7 @@ json-dotenv
 
 from __future__ import absolute_import
 
-__version__ = '0.0.26'
+__version__ = '0.0.27'
 
 import argparse
 import json
@@ -259,6 +259,10 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
         return "\n".join(r)
 
+    @staticmethod
+    def _rstrip_cr(s):
+        return re.sub(r'\\n$', '', s)
+
     def _parse_file(self):
         if self.options.file == '-':
             xfile = StringIO(sys.stdin.read())
@@ -277,17 +281,15 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
             if MATCH_VAR_NAME_QUOTE(x):
                 if cur:
                     if quoted is False:
-                        cur = cur.rstrip("\\n")
-                        cur += '"'
-                    content.append(self.escape_variable(cur.rstrip("\\n")))
+                        cur = self._rstrip_cr(cur) + '"'
+                    content.append(self.escape_variable(self._rstrip_cr(cur)))
                 quoted = True
                 cur    = self.raw_string(x)
             elif MATCH_VAR_NAME(x):
                 if cur:
                     if quoted is False:
-                        cur = cur.rstrip("\\n")
-                        cur += '"'
-                    content.append(self.escape_variable(cur.rstrip("\\n")))
+                        cur = self._rstrip_cr(cur) + '"'
+                    content.append(self.escape_variable(self._rstrip_cr(cur)))
                 quoted = False
                 cur    = '{0}="{1}'.format(*self.raw_string(x).split('=', 1))
             else:
@@ -295,9 +297,8 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
         if cur:
             if quoted is False:
-                cur = cur.rstrip("\\n")
-                cur += '"'
-            content.append(self.escape_variable(cur.rstrip("\\n")))
+                cur = self._rstrip_cr(cur) + '"'
+            content.append(self.escape_variable(self._rstrip_cr(cur)))
 
         if xfile:
             xfile.close()
