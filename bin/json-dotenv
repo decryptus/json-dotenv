@@ -8,7 +8,7 @@ json-dotenv
 
 from __future__ import absolute_import
 
-__version__ = '0.0.27'
+__version__ = '0.0.28'
 
 import argparse
 import json
@@ -261,7 +261,7 @@ class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inhe
 
     @staticmethod
     def _rstrip_cr(s):
-        return re.sub(r'\\n$', '', s)
+        return re.sub(r'(\\n)+$', '', s)
 
     def _parse_file(self):
         if self.options.file == '-':
