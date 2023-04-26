@@ -1,3 +1,10 @@
+json-dotenv (0.0.29) unstable; urgency=medium
+
+  * [RELEASE] version: 0.0.29.
+    Fixed: #4
+
+ -- Adrien DELLE CAVE (Decryptus) <adc@doowan.net>  Wed, 26 Apr 2023 20:31:01 +0200
+
 json-dotenv (0.0.28) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.28.
