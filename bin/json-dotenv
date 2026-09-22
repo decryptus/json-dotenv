@@ -8,42 +8,31 @@ json-dotenv
 
 from __future__ import absolute_import
 
-__version__ = '0.0.29'
+__version__ = '0.1.0'
 
 import argparse
 import json
 import os
 import re
-import shutil
 import sys
 import tempfile
-import warnings
 
 from collections import OrderedDict
 
 import logging
 from logging.handlers import WatchedFileHandler
 
-from six import (binary_type,
-                 ensure_text,
-                 iteritems,
-                 PY2,
-                 PY3,
-                 StringIO,
-                 string_types,
-                 text_type)
+from io import StringIO
+
+ensure_text = str
+string_types = (str,)
 
 import dotenv
 
-warnings.filterwarnings('ignore')
+
 
 SYSLOG_NAME          = "json-dotenv"
 LOG                  = logging.getLogger(SYSLOG_NAME)
-
-MATCH_VAR_NAME       = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*=').match
-MATCH_VAR_NAME_QUOTE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*="').match
-RE_CTRL_CHARS        = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
-MATCH_PVAR_ESCAPE    = re.compile(r'\$\{[^\}]*\}')
 
 ACTION_CHOICES       = ('list',
                         'keys',
@@ -54,11 +43,6 @@ ACTION_CHOICES       = ('list',
 DEFAULT_LOGFILE      = "/var/log/json-dotenv/json-dotenv.log"
 
 JSON_DOTENV_LOGFILE  = os.environ.get('JSON_DOTENV_LOGFILE') or DEFAULT_LOGFILE
-
-
-RE_CRTL_CHARS  = re.compile(r'([\x00-\x1f\x7f-\x9f]+)')
-RE_SPACE_CHARS = re.compile(r'\s\s+')
-RE_YAML_QSTR = re.compile(r'^(?:\!\![a-z\/]+\s+)?\'(.*)\'$').match
 
 
 def boolize(value):
@@ -115,7 +99,7 @@ def argv_parse_check():
                         action    = 'store_true',
                         dest      = 'force',
                         default   = False,
-                        help      = "Force the output even if there is an error")
+                        help      = "Ignore missing keys for get and unset")
     parser.add_argument("-l",
                         "--loglevel",
                         dest      = 'loglevel',
@@ -160,281 +144,127 @@ def argv_parse_check():
 class JsonDotEnvExit(SystemExit):
     pass
 
-class JsonDotEnv(object): # pylint: disable=bad-option-value,useless-object-inheritance
+class JsonDotEnv(object):
     def __init__(self, options):
-        self.options   = options
-        self.fcontent  = None
-        self.variables = {}
+        self.options = options
 
-    @staticmethod
-    def flush_sync_file_object(fo):
-        """
-        Flush internal buffers of @fo, then ask the OS to flush its own buffers.
-        """
-        fo.flush()
-        os.fsync(fo.fileno())
-
-    def file_w_tmp(self, lines, path = None, mode = 'w+'):
-        with tempfile.NamedTemporaryFile(mode, delete = False) as f:
-            LOG.debug("writing temporary file: %r", f.name)
-            f.writelines(lines)
-            self.flush_sync_file_object(f)
-
-        if not path:
-            return f.name
-
-        if os.path.isfile(path):
-            LOG.debug("overwriting file: %r", path)
-            stat = os.stat(path)
-            os.chmod(f.name, stat.st_mode)
-            os.chown(f.name, stat.st_uid, stat.st_gid)
-        LOG.debug("move file: %r to %r", f.name, path)
-        shutil.move(f.name, path)
-
-        return path
-
-    @staticmethod
-    def raw_string(value):
-        def repl_ctrl_chars(match):
-            s = match.group()
-            if PY2 and isinstance(s, str):
-                return s.encode('string-escape')
-            if isinstance(s, text_type):
-                r = s.encode('unicode-escape')
-                if PY3 and isinstance(r, binary_type):
-                    return ensure_text(r)
-                return r
-
-            return repr(s)[1:-1]
-
-        return RE_CTRL_CHARS.sub(repl_ctrl_chars, value)
-
-    def escape_variable(self, value):
-        if self.options.allow_envvar:
-            return value
-
-        def repl_esc_variable(match):
-            varesc = match.group().replace('${', r'\$\{').replace('}', r'\}')
-            self.variables[varesc] = match.group()
-
-            return ensure_text(varesc)
-
-        return MATCH_PVAR_ESCAPE.sub(repl_esc_variable, value)
-
-    def unescape_variables(self, value):
-        if self.options.allow_envvar:
-            return value
-
-        if not self.variables:
-            return value
-
-        for key, item in iteritems(self.variables):
-            value = value.replace(key, item)
-
-        return value
-
-    def _format(self, out):
-        if self.options.format == 'json':
-            if isinstance(out, dict):
-                for k, v in iteritems(out):
-                    out[k] = self.unescape_variables(v)
-            return json.dumps(out)
-
-        r = []
-
-        if isinstance(out, dict):
-            for k, v in iteritems(out):
-                if self.options.quote == 'always':
-                    f = '{}="{}"'
-                elif self.options.quote == 'auto' \
-                   and (v.find(' ') > -1 or RE_CTRL_CHARS.match(v)):
-                    f = '{}="{}"'
-                else:
-                    f = '{}={}'
-                r.append(f.format(k, self.unescape_variables(v)))
-        elif isinstance(out, (list, tuple)):
-            r.extend(out)
-        else:
-            r = "%s" % out
-
-        return "\n".join(r)
-
-    @staticmethod
-    def _rstrip_cr(s):
-        return re.sub(r'(\\n)+$', '', s)
-
-    def _parse_file(self):
+    def _read(self):
         if self.options.file == '-':
-            xfile = StringIO(sys.stdin.read())
+            content = sys.stdin.read()
         elif not self.options.file:
-            xfile = StringIO()
-        elif not os.path.exists(self.options.file):
-            raise IOError("unable to find file: %r" % self.options.file)
+            content = ''
         else:
-            xfile = open(self.options.file, 'r')
-
-        content = []
-        cur     = ""
-        quoted  = None
-
-        for x in xfile.readlines():
-            if MATCH_VAR_NAME_QUOTE(x):
-                if cur:
-                    if quoted is False:
-                        cur = self._rstrip_cr(cur) + '"'
-                    content.append(self.escape_variable(self._rstrip_cr(cur)))
-                quoted = True
-                cur    = self.raw_string(x)
-            elif MATCH_VAR_NAME(x):
-                if cur:
-                    if quoted is False:
-                        cur = self._rstrip_cr(cur) + '"'
-                    content.append(self.escape_variable(self._rstrip_cr(cur)))
-                quoted = False
-                cur    = '{0}="{1}'.format(*self.raw_string(x).split('=', 1))
-            else:
-                cur += self.raw_string(x)
-
-        if cur:
-            if quoted is False:
-                cur = self._rstrip_cr(cur) + '"'
-            content.append(self.escape_variable(self._rstrip_cr(cur)))
-
-        if xfile:
-            xfile.close()
-
-        self.fcontent = StringIO("\n".join(content) + "\n")
+            with open(self.options.file, encoding='utf-8') as stream:
+                content = stream.read()
+        # Validate before parsing: python-dotenv otherwise skips malformed lines.
+        from dotenv.parser import parse_stream
+        for binding in parse_stream(StringIO(content)):
+            if binding.error:
+                raise ValueError('Invalid dotenv statement at line %s' % binding.original.line)
+            if binding.key is not None:
+                self._valid_varname(binding.key)
+        return dotenv.dotenv_values(stream=StringIO(content),
+                                    interpolate=self.options.allow_envvar)
 
     def _valid_varname(self, key):
-        if not key:
-            LOG.error("missing variable name for command %s", self.options.command)
-            raise JsonDotEnvExit(1)
-        if not isinstance(key, string_types) \
-             or not MATCH_VAR_NAME("%s=" % key):
-            LOG.error("invalid variable name for command %s", self.options.command)
-            raise JsonDotEnvExit(2)
+        if not isinstance(key, str) or re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key) is None:
+            raise ValueError('Invalid variable name: %r' % key)
 
-        return True
+    @staticmethod
+    def _quote(value):
+        # Double-quoted dotenv syntax; escape backslashes before other characters.
+        return '\"' + value.replace('\\', '\\\\').replace('\"', '\\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '\"'
 
-    def _valid_varvalue(self, value):
-        if value is None:
-            LOG.error("missing variable value for command %s", self.options.command)
-            raise JsonDotEnvExit(3)
-
-        return True
+    def _format(self, values):
+        if self.options.format == 'json':
+            return json.dumps(values, ensure_ascii=False)
+        if isinstance(values, list):
+            return '\n'.join(values)
+        lines = []
+        for key, value in values.items():
+            if value is None:
+                lines.append(key)
+                continue
+            safe = re.fullmatch(r'[A-Za-z0-9_./:@%+,=-]*', value) is not None
+            if self.options.quote == 'never' and not safe:
+                raise ValueError('Value for %s requires quoting; use -q auto or always' % key)
+            quoted = self.options.quote == 'always' or (self.options.quote == 'auto' and not safe)
+            lines.append('%s=%s' % (key, self._quote(value) if quoted else value))
+        return '\n'.join(lines)
 
     def _output(self, content):
         if self.options.output == '-':
-            sys.stdout.write(content + "\n")
-        else:
-            self.file_w_tmp(content + "\n", self.options.output, mode = 'w+')
+            sys.stdout.write(content + '\n')
+            return
+        path = os.path.abspath(self.options.output)
+        if os.path.islink(path):
+            raise ValueError('Refusing to replace a symbolic link')
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                                             dir=os.path.dirname(path), delete=False) as stream:
+                tmp = stream.name
+                if os.path.exists(path):
+                    stat = os.stat(path)
+                    current = os.fstat(stream.fileno())
+                    if (current.st_uid, current.st_gid) != (stat.st_uid, stat.st_gid):
+                        os.fchown(stream.fileno(), stat.st_uid, stat.st_gid)
+                    os.fchmod(stream.fileno(), stat.st_mode & 0o777)
+                stream.write(content + '\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(tmp, path)
+        finally:
+            if tmp and os.path.exists(tmp):
+                os.unlink(tmp)
 
     def do_list(self):
-        self._parse_file()
-
-        return self._output(
-            self._format(
-                dotenv.dotenv_values(stream = self.fcontent)))
+        self._output(self._format(self._read()))
 
     def do_keys(self):
-        self._parse_file()
+        self._output(self._format(list(self._read())))
 
-        return self._output(
-            self._format(
-                list(dotenv.dotenv_values(stream = self.fcontent))))
-
-    def do_get(self):
+    def _keys(self):
         if not self.options.key:
-            LOG.error("missing argument key")
-            raise JsonDotEnvExit(4)
-
-        r     = OrderedDict()
-
-        self._parse_file()
-
-        envs  = dotenv.dotenv_values(stream = self.fcontent)
-
+            raise ValueError('At least one -k/--key is required')
         for key in self.options.key:
             self._valid_varname(key)
+        return self.options.key
 
-            if key in envs:
-                r[key] = envs[key]
-                continue
-
-            LOG.warning("unable to get key: %r", key)
-            if not self.options.force:
-                raise JsonDotEnvExit(4)
-
-        return self._output(self._format(r))
+    def do_get(self):
+        keys = self._keys()
+        values = self._read()
+        result = OrderedDict()
+        for key in keys:
+            if key not in values:
+                if not self.options.force:
+                    raise ValueError('Key not found: %s' % key)
+            else:
+                result[key] = values[key]
+        self._output(self._format(result))
 
     def do_set(self):
-        if not self.options.key:
-            LOG.error("missing argument key")
-            raise JsonDotEnvExit(4)
-
-        if not self.options.value or len(self.options.key) != len(self.options.key):
-            LOG.error("missing argument value")
-            raise JsonDotEnvExit(4)
-
-        fpath = None
-        self._parse_file()
-
-        try:
-            fpath = self.file_w_tmp(self.fcontent.getvalue())
-
-            for i, key in enumerate(self.options.key):
-                value = self.options.value[i]
-                self._valid_varname(key)
-                self._valid_varvalue(value)
-                #pylint: disable=unused-variable
-                success, k, v = dotenv.set_key(fpath,
-                                               key,
-                                               value,
-                                               self.options.quote)
-
-                if success:
-                    continue
-
-                LOG.warning("unable to set key: %r", key)
-                if not self.options.force:
-                    raise JsonDotEnvExit(4)
-
-            return self._output(
-                self._format(
-                    dotenv.dotenv_values(fpath)))
-        finally:
-            if fpath and os.path.isfile(fpath):
-                os.unlink(fpath)
+        keys = self._keys()
+        if len(keys) != len(self.options.value):
+            raise ValueError('Provide exactly one -v/--value per key')
+        values = self._read()
+        for key, value in zip(keys, self.options.value):
+            if self.options.allow_envvar:
+                from dotenv.variables import parse_variables
+                context = dict(os.environ)
+                context.update(values)
+                value = ''.join(atom.resolve(context) for atom in parse_variables(value))
+            values[key] = value
+        self._output(self._format(values))
 
     def do_unset(self):
-        if not self.options.key:
-            LOG.error("missing argument key")
-            raise JsonDotEnvExit(4)
-
-        fpath = None
-        self._parse_file()
-
-        try:
-            fpath = self.file_w_tmp(self.fcontent.getvalue())
-
-            for key in self.options.key:
-                self._valid_varname(key)
-                success, k = dotenv.unset_key(fpath,
-                                              key,
-                                              self.options.quote)
-                if success:
-                    continue
-
-                LOG.warning("unable to remove key: %r", k)
-                if not self.options.force:
-                    raise JsonDotEnvExit(4)
-
-            return self._output(
-                self._format(
-                    dotenv.dotenv_values(fpath)))
-        finally:
-            if fpath and os.path.isfile(fpath):
-                os.unlink(fpath)
+        keys = self._keys()
+        values = self._read()
+        for key in keys:
+            if key not in values and not self.options.force:
+                raise ValueError('Key not found: %s' % key)
+            values.pop(key, None)
+        self._output(self._format(values))
 
 
 def main(options):
@@ -464,6 +294,9 @@ def main(options):
         rc = e.code
     except (SystemExit, KeyboardInterrupt):
         rc = 255
+    except ValueError as e:
+        rc = 4
+        LOG.error(e)
     except IOError as e:
         rc = 5
         LOG.error(e)
