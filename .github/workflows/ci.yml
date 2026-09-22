@@ -1,0 +1,63 @@
+name: Tests and version tag
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements.txt build PyYAML
+      - run: python -m unittest discover -s tests -v
+      - name: Check version consistency
+        run: |
+          python - <<'PY'
+          import ast, pathlib, yaml
+          version = pathlib.Path('VERSION').read_text().strip()
+          assert version == pathlib.Path('RELEASE').read_text().strip()
+          config = yaml.safe_load(pathlib.Path('setup.yml').read_text())
+          assert config['version'] == config['release'] == version
+          tree = ast.parse(pathlib.Path('bin/json-dotenv').read_text())
+          versions = [ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == '__version__' for t in n.targets)]
+          assert versions == [version]
+          PY
+      - run: python -m build
+      - name: Install and smoke-test wheel
+        run: |
+          python -m pip install dist/*.whl
+          json-dotenv set -f '' -k TEST -v ok
+  tag:
+    needs: tests
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: json-dotenv-tag
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select tag
+        id: release
+        run: python .github/scripts/release.py
+      - name: Create tag after successful tests
+        if: steps.release.outputs.create == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$RELEASE_SHA"

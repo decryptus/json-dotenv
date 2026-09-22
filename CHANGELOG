@@ -1,3 +1,11 @@
+json-dotenv (0.1.0) unstable; urgency=medium
+
+  * Fix dotenv parsing, quoting, validation and literal variable handling.
+  * Replace output atomically; add tests and automatic version tags.
+  * Require Python 3.10+ and document migration.
+
+ -- Adrien Delle Cave <pypi@doowan.net>  Tue, 22 Sep 2026 10:00:00 +0200
+
 json-dotenv (0.0.29) unstable; urgency=medium
 
   * [RELEASE] version: 0.0.29.

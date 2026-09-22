@@ -10,7 +10,6 @@ GIT_PATH ?= git
 GREP_PATH ?= grep
 J2_PATH ?= j2
 MAKE_PATH ?= make
-PYTHON2_PATH ?= python2
 PYTHON3_PATH ?= python3
 RM_PATH ?= rm
 SED_PATH ?= sed
@@ -82,21 +81,13 @@ git-release:
 	$(MAKE_PATH) git-push
 	$(MAKE_PATH) push-git-release
 
-build-pip2: clean-pip
-	$(PYTHON2_PATH) setup.py bdist_wheel
-
 build-pip3: clean-pip
-	$(PYTHON3_PATH) setup.py bdist_wheel
-
-push-pip2:
-	$(TWINE_PATH) upload dist/*
+	$(PYTHON3_PATH) -m build
 
 push-pip3:
 	$(TWINE_PATH) upload dist/*
 
 push-pip:
-	$(MAKE_PATH) build-pip2
-	$(MAKE_PATH) push-pip2
 	$(MAKE_PATH) build-pip3
 	$(MAKE_PATH) push-pip3
 

@@ -1,132 +1,124 @@
-# json-dotenv project
+# json-dotenv
 
-[![PyPI pyversions](https://img.shields.io/pypi/pyversions/json-dotenv.svg)](https://pypi.org/project/json-dotenv/)
-[![PyPI version shields.io](https://img.shields.io/pypi/v/json-dotenv.svg)](https://pypi.org/project/json-dotenv/)
-[![Documentation Status](https://readthedocs.org/projects/json-dotenv/badge/?version=latest)](https://json-dotenv.readthedocs.io/)
+Read and transform `.env` files from the command line, with JSON output for scripts.
+Select several keys, set or remove several values, and pipe the result into other tools.
+The input file is unchanged unless explicitly selected as the output.
 
-json-dotenv is a free and open-source, we develop it to manipulate and extract envfiles in json format.
+## Install
 
-## Table of contents
-1. [Installation](#installation)
-2. [Usage](#usage)
-3. [Commands](#commands)
+Requires Python 3.10 or newer, on Unix-like systems.
 
-## <a name="installation"></a>Installation
-
-`pip install json-dotenv`
-
-## <a name="usage"></a>Usage
-
-```
-usage: json-dotenv [-h] [--allow-envvar] [-c {list,keys,get,set,unset}]
-                   [-k KEY] [-v VALUE] [-f FILE] [--force]
-                   [-l {critical,error,warning,info,debug}]
-                   [--logfile LOGFILE] [-o OUTPUT] [-q {always,never,auto}]
-                   [--format {env,json}]
-                   [{list,keys,get,set,unset}]
-
-positional arguments:
-  {list,keys,get,set,unset}
-                        Commands: list, keys, get, set, unset
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --allow-envvar        Allow environment variables expansion, instead of
-                        False
-  -c {list,keys,get,set,unset}
-                        Commands: list, keys, get, set, unset, instead of list
-                        (deprecated)
-  -k KEY, --key KEY     variable name to set or unset
-  -v VALUE, --value VALUE
-                        variable value to set
-  -f FILE               Location of the environment file or from stdin (-),
-                        instead of .env
-  --force               Force the output even if there is an error
-  -l {critical,error,warning,info,debug}, --loglevel {critical,error,warning,info,debug}
-                        Emit traces with LOGLEVEL details, must be one of:
-                        critical, error, warning, info, debug
-  --logfile LOGFILE     Use log file <logfile> instead of /var/log/json-dotenv
-                        /json-dotenv.log
-  -o OUTPUT             Output result in file or to stdout
-  -q {always,never,auto}
-                        Whether to quote or not the variable values, instead
-                        of always. This does not affect parsing
-  --format {env,json}   Output format env or json, instead of json
-
+```sh
+pip install json-dotenv
 ```
 
-## <a name="commands"></a>Commands
+To install this checkout (including changes not yet published on PyPI):
 
-List all environment variables in file foo.env:
-
-`json-dotenv list -f foo.env`
-
-```json
-{
-  "LANG": "en_US.utf8",
-  "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games",
-  "MONIT_DOCKER_CONFIG": "vars:\n  base_url_unix: unix:///var/run/docker.sock\n  base_url_https: https://127.0.0.1:2376/\n  tls_verify: true\nclients:\n  '@import_client':\n    - clients.yml.example\n  local_https:\n    config:\n      base_url: ${vars['base_url_https']}\n      tls:\n        verify: ${vars['tls_verify']}\n  foo_https:\n    '@import_vars': foo_https.vars.yml.example\n    config:\n      base_url: ${vars['base_url_https']}\nctn-groups:\n  php:\n    match:\n      - 'name:foo-php*'\n      - 'image:*/php-fpm/*'\n      - 'label:*php-fpm*'\n  nodejs:\n    match:\n      - 'id:4c01db0b339c'\n      - 'name:node*'\nconditions:\n  mem_gt_10pct_and_cpu_gt_60pct:\n    expr:\n      - mem_percent > 10\n      - cpu_percent > 60\n  mem_usage_100MiB:\n    expr:\n      - mem_usage > 100 MiB\n  status_not_running:\n    expr:\n      - status not in (pause,running)\ncommands:\n  start_pause:\n    exec:\n      - start\n      - (echo 'foo' > /tmp/bar)\n      - pause\n  pause_restart:\n    exec:\n      - pause\n      - restart\n  remove_force:\n    exec:\n      - remove:\n          kwargs:\n            force: true",
-  "SHELL": "/bin/bash",
-  "AUTON_CONFIG": "general:\n  listen_addr:   0.0.0.0\n  listen_port:   8666\n  max_workers:   5\n  max_requests:  5000\n  max_life_time: 3600\n  lock_timeout:  60\n  charset:       utf-8\n  content_type:  'application/json; charset=utf-8'\n  #auth_basic:      'Restricted'\n  #auth_basic_file: '/etc/auton/auton.passwd'\nendpoints:\n  si.corp-ansible:\n    plugin: subproc\n    config:\n      prog: ansible-playbook\n      timeout: 3600\n  si.corp-terraform:\n    plugin: subproc\n    config:\n      prog: terraform\n      timeout: 3600\n  curl:\n    plugin: subproc\n    config:\n      prog: curl\n      timeout: 3600\nmodules:\n  job:\n    routes:\n      run:\n        handler:   'job_run'\n        regexp:    '^run/(?P<endpoint>[^\\/]+)/(?P<id>[a-z0-9][a-z0-9\\-]{7,63})$'\n        safe_init: true\n        auth:      false\n        op:        'POST'\n      status:\n        handler:   'job_status'\n        regexp:    '^status/(?P<endpoint>[^\\/]+)/(?P<id>[a-z0-9][a-z0-9\\-]{7,63})$'\n        auth:      false\n        op:        'GET'"
-}
+```sh
+pip install .
 ```
 
-List all environment variables name in file foo.env:
+## Examples
 
-`json-dotenv keys -f foo.env`
+Given `.env`:
 
-```json
-[
-  "LANG",
-  "PATH",
-  "MONIT_DOCKER_CONFIG",
-  "SHELL",
-  "AUTON_CONFIG"
-]
+```dotenv
+APP_NAME='My app'
+PORT=8080
+TEMPLATE=${APP_NAME}
 ```
 
-Get foo.env contents from stdin and set variables AUTON\_CONFIG=bar and toto=titi:
+```sh
+json-dotenv list -f .env
+# {"APP_NAME": "My app", "PORT": "8080", "TEMPLATE": "${APP_NAME}"}
 
-`cat foo.env | json-dotenv set -f - -k AUTON_CONFIG -v bar -k toto -v titi`
+json-dotenv get -f .env -k APP_NAME -k PORT
+json-dotenv keys -f .env
+json-dotenv set -f .env -k PORT -v 9090 -k MODE -v production
+json-dotenv unset -f .env -k TEMPLATE
 
-```json
-{
-  "LANG": "en_US.utf8",
-  "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games",
-  "MONIT_DOCKER_CONFIG": "vars:\n  base_url_unix: unix:///var/run/docker.sock\n  base_url_https: https://127.0.0.1:2376/\n  tls_verify: true\nclients:\n  '@import_client':\n    - clients.yml.example\n  local_https:\n    config:\n      base_url: ${vars['base_url_https']}\n      tls:\n        verify: ${vars['tls_verify']}\n  foo_https:\n    '@import_vars': foo_https.vars.yml.example\n    config:\n      base_url: ${vars['base_url_https']}\nctn-groups:\n  php:\n    match:\n      - 'name:foo-php*'\n      - 'image:*/php-fpm/*'\n      - 'label:*php-fpm*'\n  nodejs:\n    match:\n      - 'id:4c01db0b339c'\n      - 'name:node*'\nconditions:\n  mem_gt_10pct_and_cpu_gt_60pct:\n    expr:\n      - mem_percent > 10\n      - cpu_percent > 60\n  mem_usage_100MiB:\n    expr:\n      - mem_usage > 100 MiB\n  status_not_running:\n    expr:\n      - status not in (pause,running)\ncommands:\n  start_pause:\n    exec:\n      - start\n      - (echo 'foo' > /tmp/bar)\n      - pause\n  pause_restart:\n    exec:\n      - pause\n      - restart\n  remove_force:\n    exec:\n      - remove:\n          kwargs:\n            force: true",
-  "SHELL": "/bin/bash",
-  "AUTON_CONFIG": "bar",
-  "toto": "titi"
-}
+# Read stdin and write a new dotenv file.
+cat .env | json-dotenv set -f - -k PORT -v 9090 --format env -o result.env
+
+# Start with no input file.
+json-dotenv set -f '' -k APP_NAME -v 'My app' --format env
+
+# Explicitly replace the original, after a successful conversion.
+json-dotenv set -f .env -k PORT -v 9090 --format env -o .env
 ```
 
-Get variables LANG and PATH from foo.env:
+JSON output is a dictionary, except `keys`, which returns an array. Values remain
+strings; a bare key without `=` becomes JSON `null`, while `KEY=` becomes `""`.
+JSON is an output format; JSON input is not supported.
 
-`json-dotenv get -f foo.env -k LANG -k PATH`
+## Multiline values and interpolation
 
-```json
-{
-  "LANG": "en_US.utf8",
-  "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
-}
+Use standard quoted dotenv values for multiline content:
+
+```dotenv
+CONFIG="first line
+second line"
 ```
 
-Unset variables MONIT\_DOCKER\_CONFIG and AUTON\_CONFIG from file foo.env (file not modified):
+`${VARIABLE}` expressions are literal by default, both in input files and in
+values passed to `set`. Add `--allow-envvar` to expand them. Shell arguments must
+also be single-quoted to prevent expansion by your shell:
 
-`json-dotenv unset -f foo.env -k MONIT_DOCKER_CONFIG -k AUTON_CONFIG`
-
-```json
-{
-  "LANG": "en_US.utf8",
-  "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games",
-  "SHELL": "/bin/bash"
-}
+```sh
+json-dotenv set -f '' -k TEMPLATE -v '${HOME}'
+json-dotenv set -f '' -k TEMPLATE -v '${HOME}' --allow-envvar
 ```
 
-Set variables TOTO and BAR and output result in file bar.json:
+With interpolation enabled, file values follow python-dotenv's expansion rules.
+New values are expanded in argument order, using the parsed file and earlier
+assignments ahead of process environment variables. Undefined references become
+empty strings unless they provide a supported default.
 
-`json-dotenv set -f '' -k TOTO -v tutu -k BAR -v foo -o bar.json`
+## Output and errors
 
-Set variables TOTO and BAR and output result in file bar.env (environment variables format):
+- `--format json` is the default; `--format env` generates dotenv syntax.
+- `-q always` quotes all assigned dotenv values; `-q auto` quotes when needed.
+- `-q never` rejects values that need quoting, rather than silently corrupting them.
+- `--force` ignores missing keys for `get` and `unset`; it does not bypass syntax errors.
+- Malformed input, invalid key names and mismatched key/value counts fail before output.
+- `-o FILE` replaces the file atomically using a temporary file in the same directory.
+  Existing Unix ownership and permission bits are preserved; new files use mode `0600`.
+  Symbolic-link destinations are rejected. ACLs and extended attributes are not preserved.
+- Output is dotenv data, not an executable shell script. Do not `source` untrusted output.
 
-`json-dotenv set -f '' -k TOTO -v tutu -k BAR -v foo --format env -o bar.env`
+Exit codes: `0` success, `2` command-line syntax error, `4` invalid data or missing
+key, `5` file I/O failure, `6` unexpected error, `255` interruption.
+Run `json-dotenv --help` for all options. The legacy `-c COMMAND` form remains accepted.
+Existing `JSON_DOTENV_*` options remain available: `COMMAND`, `FILE`, `OUTPUT`,
+`QUOTE`, `ALLOW_ENVVAR`, and `LOGFILE`.
+
+## Migration from 0.0.29
+
+Version 0.1.0 requires Python 3.10+. It uses standard dotenv parsing: comments
+are ignored, single quotes are handled correctly, and multiline values must be
+quoted. Legacy unquoted continuation lines must be converted to quoted values.
+`set` now preserves `${...}` unless interpolation is explicitly enabled.
+Formatting and comments are not preserved when generating a new dotenv file.
+Duplicate keys use the last value. Names must match `[A-Za-z_][A-Za-z0-9_]*`.
+
+## Development and automatic tags
+
+```sh
+python -m pip install -r requirements.txt build
+python -m unittest discover -s tests -v
+python -m build
+```
+
+CI tests Python 3.10–3.14 and builds the source distribution and wheel.
+To release, update `VERSION`, `RELEASE`, `setup.yml`, `bin/json-dotenv`'s
+`__version__`, and `CHANGELOG` together, then merge into `master`.
+After successful tests, GitHub Actions creates `vX.Y.Z` at that commit.
+Existing ancestor tags are left untouched, so documentation-only commits do not
+move releases. A conflicting tag fails the workflow. Manual workflow execution
+on `master` can retry tag creation. Only the built-in GitHub token is required.
+
+Automatic tagging does **not** publish a package to PyPI or create GitHub release
+notes. Tags created with the built-in token do not trigger a second push workflow;
+the tagged commit has already passed the tests in the same workflow.
+
+Licensed under GPL-3.0-or-later.
