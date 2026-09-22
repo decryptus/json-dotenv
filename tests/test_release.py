@@ -27,6 +27,18 @@ class ReleaseTests(unittest.TestCase):
                 self.assertFalse(release.select()[2])
                 git('commit', '--allow-empty', '-m', 'docs')
                 self.assertFalse(release.select()[2])
+                script = str(Path(release.__file__).resolve())
+                output = Path('outputs')
+                env = dict(os.environ, GITHUB_OUTPUT=str(output), GITHUB_REF='refs/heads/master',
+                           GITHUB_EVENT_NAME='workflow_dispatch', RELEASE_TAG='v0.1.0')
+                subprocess.run([os.sys.executable, script], env=env, check=True)
+                result = dict(line.split('=', 1) for line in output.read_text().splitlines())
+                self.assertEqual(result['sha'], sha)
+                self.assertEqual(result['publish'], 'true')
+                self.assertEqual(result['create'], 'false')
+                for bad in ['v9.9.9', '../bad']:
+                    env['RELEASE_TAG'] = bad
+                    self.assertNotEqual(subprocess.run([os.sys.executable, script], env=env, capture_output=True).returncode, 0)
                 Path('VERSION').write_text('0.2.0')
                 with self.assertRaises(ValueError): release.select()
                 Path('RELEASE').write_text('0.2.0')

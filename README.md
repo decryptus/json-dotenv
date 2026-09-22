@@ -117,8 +117,31 @@ Existing ancestor tags are left untouched, so documentation-only commits do not
 move releases. A conflicting tag fails the workflow. Manual workflow execution
 on `master` can retry tag creation. Only the built-in GitHub token is required.
 
-Automatic tagging does **not** publish a package to PyPI or create GitHub release
-notes. Tags created with the built-in token do not trigger a second push workflow;
-the tagged commit has already passed the tests in the same workflow.
+### Automatic PyPI publication
+
+After the tests and tag creation, the same workflow builds the tagged code,
+checks the distributions, and uploads them to PyPI in a separate job using
+Trusted Publishing (OIDC). No stored PyPI API token is needed. Ordinary commits
+on an already released version do not republish it. Existing PyPI files are
+skipped on retries; they cannot be overwritten.
+
+One-time setup: in the PyPI project's **Manage → Publishing** page, add a GitHub
+publisher with these exact values:
+
+| Field | Value |
+| --- | --- |
+| Owner | `decryptus` |
+| Repository | `json-dotenv` |
+| Workflow filename | `ci.yml` |
+| Environment | `pypi` |
+
+To publish the existing `v0.1.0` tag or retry a release, open **Actions → Tests,
+version tag and PyPI → Run workflow**, select `master` and enter the tag. The
+selected tag must belong to master's history and match its version files. With
+no tag input, a manual run follows the normal automatic version selection.
+
+The publication job needs the PyPI publisher configured before it can succeed.
+GitHub release notes are not created. Publication occurs in the same workflow
+as tagging, so it does not depend on a bot-created tag triggering another run.
 
 Licensed under GPL-3.0-or-later.
