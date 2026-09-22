@@ -26,6 +26,19 @@ def select():
 
 
 if __name__ == '__main__':
-    tag, sha, create = select()
+    requested = os.environ.get('RELEASE_TAG', '')
+    if requested:
+        if os.environ.get('GITHUB_EVENT_NAME') != 'workflow_dispatch' or os.environ.get('GITHUB_REF') != 'refs/heads/master':
+            raise ValueError('Manual publication must run from master')
+        if not re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', requested):
+            raise ValueError('Expected vX.Y.Z')
+        sha = git('rev-parse', '--verify', 'refs/tags/' + requested + '^{commit}')
+        subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'HEAD'], check=True)
+        if git('show', sha + ':VERSION') != requested[1:] or git('show', sha + ':RELEASE') != requested[1:]:
+            raise ValueError('Tag and version files differ')
+        tag, create, publish = requested, False, True
+    else:
+        tag, sha, create = select()
+        publish = create or git('rev-parse', 'refs/tags/' + tag + '^{commit}') == sha
     with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-        output.write(f'tag={tag}\nsha={sha}\ncreate={str(create).lower()}\n')
+        output.write(f'tag={tag}\nsha={sha}\ncreate={str(create).lower()}\npublish={str(publish).lower()}\n')

@@ -1,10 +1,15 @@
-name: Tests and version tag
+name: Tests, version tag and PyPI
 on:
   push:
     branches: [master]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish (optional, for example v0.1.0)'
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -38,6 +43,10 @@ jobs:
           python -m pip install dist/*.whl
           json-dotenv set -f '' -k TEST -v ok
   tag:
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+      sha: ${{ steps.release.outputs.sha }}
+      tag: ${{ steps.release.outputs.tag }}
     needs: tests
     if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -53,6 +62,8 @@ jobs:
           persist-credentials: false
       - name: Select tag
         id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: python .github/scripts/release.py
       - name: Create tag after successful tests
         if: steps.release.outputs.create == 'true'
@@ -61,3 +72,46 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
         run: gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$RELEASE_SHA"
+
+  build-pypi:
+    needs: tag
+    if: needs.tag.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt build twine
+      - run: python -m unittest discover -s tests -v
+      - run: python -m build
+      - run: python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypi-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+  publish-pypi:
+    needs: build-pypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/json-dotenv/
+    permissions:
+      id-token: write
+    concurrency:
+      group: json-dotenv-pypi
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pypi-distributions
+          path: dist/
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
