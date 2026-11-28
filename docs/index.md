@@ -22,7 +22,7 @@ pip install .
 
 Given `.env`:
 
-```dotenv
+```text
 APP_NAME='My app'
 PORT=8080
 TEMPLATE=${APP_NAME}
@@ -55,7 +55,7 @@ JSON is an output format; JSON input is not supported.
 
 Use standard quoted dotenv values for multiline content:
 
-```dotenv
+```text
 CONFIG="first line
 second line"
 ```
